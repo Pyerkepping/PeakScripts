@@ -14,7 +14,7 @@ local camera = Workspace.CurrentCamera
 -- Variables for movement
 local movementDirection = Vector3.new(0, 0, 0)
 local walkSpeed = 0 -- Default speed
-local flySpeed = 50 -- Default fly speed
+local flySpeed = 0 -- Default fly speed
 local jumpPower = 100 -- Jump height adjustment
 local flying = false
 local platform
@@ -541,7 +541,7 @@ do
         min = 0,
         max = 250,
         step = 1,
-        val = 10
+        val = 0
     }, function(value)
         walkSpeed = value -- Update the walkSpeed variable based on the slider value
         print("Speed set to:", value)
@@ -552,7 +552,7 @@ do
         min = 0,
         max = 250,
         step = 1,
-        val = 50
+        val = 0
     }, function(value)
         flySpeed = value -- Update the flySpeed variable based on the slider value
         print("flySpeed set to:", value)
