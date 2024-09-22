@@ -3,8 +3,8 @@ local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local Lighting = game:GetService("Lighting") -- To adjust brightness and fog
-local TeleportService = game:GetService("TeleportService") -- For rejoining the server
+local Lighting = game:GetService("Lighting")
+local TeleportService = game:GetService("TeleportService")
 
 local player = Players.LocalPlayer
 local character
@@ -13,24 +13,31 @@ local camera = Workspace.CurrentCamera
 
 -- Variables for movement
 local movementDirection = Vector3.new(0, 0, 0)
-local walkSpeed = 0 -- Default speed
-local flySpeed = 0 -- Default fly speed
-local jumpPower = 100 -- Jump height adjustment
+local walkSpeed = 0
+local flySpeed = 0
+local jumpPower = 100
 local flying = false
 local platform
-local isNoclipping = false -- Track the noclip state
+local isNoclipping = false
 
--- Highlight functionality variables
-local highlightFillColor = Color3.fromRGB(255, 101, 27) -- Default fill color
-local outlineColor = Color3.fromRGB(255, 255, 255) -- Default outline color
-local highlightPlayersEnabled = false -- Toggle for players
-local highlightMobsEnabled = false -- Toggle for mobs
-local highlightItemsEnabled = false -- Toggle for items
-local chestHighlightEnabled = false -- Toggle for chests
+-- Highlight colors and toggles
+local highlightPlayerFillColor = Color3.fromRGB(255, 101, 27)
+local highlightPlayerOutlineColor = Color3.fromRGB(255, 255, 255)
+local highlightMobFillColor = Color3.fromRGB(0, 255, 0)
+local highlightMobOutlineColor = Color3.fromRGB(255, 255, 255)
+local highlightItemFillColor = Color3.fromRGB(0, 0, 255)
+local highlightItemOutlineColor = Color3.fromRGB(255, 255, 255)
+local highlightChestFillColor = Color3.fromRGB(255, 165, 0)
+local highlightChestOutlineColor = Color3.fromRGB(255, 255, 255)
+
+local highlightPlayersEnabled = false
+local highlightMobsEnabled = false
+local highlightItemsEnabled = false
+local chestHighlightEnabled = false
 
 -- Spectate functionality variables
-local spectatePlayerName = "" -- Player name to spectate
-local spectatePlayerEnabled = false -- Toggle state for spectating
+local spectatePlayerName = ""
+local spectatePlayerEnabled = false
 
 -- Function to create a highlight
 local function createHighlight(object, fillColor, outlineColor)
@@ -38,10 +45,14 @@ local function createHighlight(object, fillColor, outlineColor)
         local highlight = Instance.new("Highlight")
         highlight.Parent = object
         highlight.Adornee = object
-        highlight.FillColor = fillColor or highlightFillColor
-        highlight.OutlineColor = outlineColor or outlineColor
+        highlight.FillColor = fillColor
+        highlight.OutlineColor = outlineColor
         highlight.FillTransparency = 0.5
         highlight.OutlineTransparency = 0.5
+    else
+        local highlight = object:FindFirstChildOfClass("Highlight")
+        highlight.FillColor = fillColor
+        highlight.OutlineColor = outlineColor
     end
 end
 
@@ -59,7 +70,6 @@ local function updateHighlights()
     local shopsFolder = Workspace:FindFirstChild("Shops")
     local thrownFolder = Workspace:FindFirstChild("Thrown")
 
-    -- Create a set of player names
     local playerNames = {}
     for _, p in pairs(Players:GetPlayers()) do
         playerNames[p.Name] = true
@@ -69,7 +79,7 @@ local function updateHighlights()
     if highlightPlayersEnabled then
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                createHighlight(p.Character, highlightFillColor, outlineColor)
+                createHighlight(p.Character, highlightPlayerFillColor, highlightPlayerOutlineColor)
             end
         end
     else
@@ -84,7 +94,7 @@ local function updateHighlights()
     if highlightMobsEnabled and liveFolder then
         for _, mob in pairs(liveFolder:GetChildren()) do
             if not playerNames[mob.Name] then
-                createHighlight(mob, highlightFillColor, outlineColor)
+                createHighlight(mob, highlightMobFillColor, highlightMobOutlineColor)
             end
         end
     else
@@ -98,7 +108,7 @@ local function updateHighlights()
     -- Highlight buyable items
     if highlightItemsEnabled and shopsFolder then
         for _, item in pairs(shopsFolder:GetChildren()) do
-            createHighlight(item, highlightFillColor, outlineColor)
+            createHighlight(item, highlightItemFillColor, highlightItemOutlineColor)
         end
     else
         if shopsFolder then
@@ -112,9 +122,7 @@ local function updateHighlights()
     if chestHighlightEnabled and thrownFolder then
         for _, model in pairs(thrownFolder:GetChildren()) do
             if model:IsA("Model") and model:FindFirstChild("Lid") then
-                createHighlight(model, highlightFillColor, outlineColor)
-            else
-                removeHighlight(model)
+                createHighlight(model, highlightChestFillColor, highlightChestOutlineColor)
             end
         end
     else
@@ -164,14 +172,7 @@ end
 -- Function to toggle noclip mode
 local function toggleNoclip()
     isNoclipping = not isNoclipping
-
-    if isNoclipping then
-        print("Noclip enabled")
-        setCanCollideForCharacter(false)  -- Disable collision immediately when noclip is enabled
-    else
-        print("Noclip disabled")
-        setCanCollideForCharacter(true)   -- Re-enable collision when noclip is disabled
-    end
+    setCanCollideForCharacter(not isNoclipping)
 end
 
 -- Function to set CanCollide for all character parts
@@ -183,46 +184,20 @@ local function setCanCollideForCharacter(canCollide)
     end
 end
 
--- Noclip logic: maintain character's position and orientation
-RunService.Stepped:Connect(function()
-    if isNoclipping then
-        humanoidRootPart.Velocity = Vector3.new(0, 0, 0)  -- Zero out velocity to prevent tilting
-        humanoidRootPart.CFrame = CFrame.new(humanoidRootPart.Position) * CFrame.Angles(0, humanoidRootPart.Orientation.Y * math.rad(1), 0)  -- Maintain orientation
-    end
-end)
-
 -- Create platform part for flying
 local function createPlatform()
     platform = Instance.new("Part")
-    platform.Size = Vector3.new(5, 1, 5) -- Adjust size if needed
-    platform.Color = Color3.fromRGB(255, 255, 0) -- Can change color (doesn't affect invisibility)
+    platform.Size = Vector3.new(5, 1, 5)
     platform.Anchored = true
-    platform.CanCollide = false -- Prevents collisions
-    platform.Transparency = 0 -- Makes the platform fully invisible
+    platform.CanCollide = false
+    platform.Transparency = 1
     platform.Parent = Workspace
-end
-
--- Initialize platform
-createPlatform()
-
--- Function to change fly speed
-local function changeFlySpeed(newSpeed)
-    flySpeed = newSpeed
-    print("Fly speed set to:", flySpeed)
-end
-
--- Detect movement key press
-local function isMoving()
-    return UserInputService:IsKeyDown(Enum.KeyCode.W) or
-           UserInputService:IsKeyDown(Enum.KeyCode.A) or
-           UserInputService:IsKeyDown(Enum.KeyCode.S) or
-           UserInputService:IsKeyDown(Enum.KeyCode.D)
 end
 
 -- Function to stop momentum
 local function stopMomentum()
-    humanoidRootPart.Velocity = Vector3.new(0, 0, 0) -- Zero out velocity
-    humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0) -- Stop any rotational velocity
+    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
 end
 
 -- Main flight control
@@ -230,32 +205,10 @@ local function onRenderStepped(deltaTime)
     updateMovementDirection()
     
     if flying then
-        -- Only move if any key is pressed
-        if isMoving() then
-            local direction = Vector3.new(0, 0, 0)
-
-            -- Movement directions based on camera
-            if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-                direction = direction + camera.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-                direction = direction - camera.CFrame.LookVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-                direction = direction - camera.CFrame.RightVector
-            end
-            if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-                direction = direction + camera.CFrame.RightVector
-            end
-
-            -- Apply smooth movement using CFrame
-            humanoidRootPart.CFrame = humanoidRootPart.CFrame + (direction.Unit * flySpeed * deltaTime)
+        if movementDirection.Magnitude > 0 then
+            humanoidRootPart.CFrame = humanoidRootPart.CFrame + (movementDirection * flySpeed * deltaTime)
         end
-
-        -- Position platform under the player with a fixed offset
         platform.Position = humanoidRootPart.Position - Vector3.new(0, 3.5, 0)
-
-        -- Stop any momentum or unwanted movement
         stopMomentum()
     else
         moveCharacter(deltaTime)
@@ -266,7 +219,6 @@ local function onRenderStepped(deltaTime)
         humanoidRootPart.Velocity = humanoidRootPart.Velocity + Vector3.new(0, jumpPower, 0)
     end
 
-    -- Update highlights dynamically
     updateHighlights()
 end
 
@@ -285,14 +237,39 @@ local function stopSpectating()
     camera.CameraSubject = character:FindFirstChildOfClass("Humanoid")
 end
 
--- Cleanup platform when character is removed
+-- Cleanup and initialization when character is added
 local function onCharacterAdded(newCharacter)
     character = newCharacter
     humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-    createPlatform() -- Recreate the platform for flying
-    isNoclipping = false -- Reset noclip state
-    flying = false -- Reset flying state
-    walkSpeed = 50 -- Reset walk speed
+    createPlatform()
+    isNoclipping = false
+    flying = false
+    walkSpeed = 0
+end
+
+-- Functions to update the highlight colors
+local function UpdatePlayerHighlightColor(newFillColor, newOutlineColor)
+    highlightPlayerFillColor = newFillColor or highlightPlayerFillColor
+    highlightPlayerOutlineColor = newOutlineColor or highlightPlayerOutlineColor
+    updateHighlights()
+end
+
+local function UpdateMobHighlightColor(newFillColor, newOutlineColor)
+    highlightMobFillColor = newFillColor or highlightMobFillColor
+    highlightMobOutlineColor = newOutlineColor or highlightMobOutlineColor
+    updateHighlights()
+end
+
+local function UpdateItemHighlightColor(newFillColor, newOutlineColor)
+    highlightItemFillColor = newFillColor or highlightItemFillColor
+    highlightItemOutlineColor = newOutlineColor or highlightItemOutlineColor
+    updateHighlights()
+end
+
+local function UpdateChestHighlightColor(newFillColor, newOutlineColor)
+    highlightChestFillColor = newFillColor or highlightChestFillColor
+    highlightChestOutlineColor = newOutlineColor or highlightChestOutlineColor
+    updateHighlights()
 end
 
 -- Connect events
@@ -302,16 +279,7 @@ RunService.RenderStepped:Connect(onRenderStepped)
 -- Initialize for the first time
 onCharacterAdded(player.Character or player.CharacterAdded:Wait())
 
-
-
--- Example usage of changeFlySpeed function
--- You can call this function with a new speed value to change the fly speed, e.g., changeFlySpeed(150)
-
-
-
--- Dollarware example script
-
--- Snag the ui loader function (loadstring the link, but don't call it)
+-- UI Setup
 local uiLoader = loadstring(game:HttpGet('https://raw.githubusercontent.com/topitbopit/dollarware/main/library.lua'))
 local ui = uiLoader({
     rounding = false,
@@ -333,137 +301,174 @@ local visualsMenu = window:addMenu({
     text = 'Visuals'
 })
 
-do 
-    -- First section under Visuals
-    local section1 = visualsMenu:addSection({
-        text = 'Visuals Section 1',
-        side = 'left',
-        showMinButton = true
-    })
-    
-    -- Highlight Players toggle
-    local highlightPlayersToggle = section1:addToggle({
-        text = 'Highlight Players',
-        state = false
-    })
-    
-    highlightPlayersToggle:bindToEvent('onToggle', function(newState)
-        highlightPlayersEnabled = newState -- Enable/disable player highlighting
-        ui.notify({
-            title = 'Highlight Toggle',
-            message = 'Highlight Players toggled to ' .. tostring(newState),
-            duration = 3
-        })
-    end)
-
-    -- Mob ESP toggle
-    local mobESPToggle = section1:addToggle({
-        text = 'Mob ESP',
-        state = false
-    })
-    mobESPToggle:bindToEvent('onToggle', function(newState)
-        highlightMobsEnabled = newState -- Enable/disable mob highlighting
-        ui.notify({
-            title = 'Mob ESP Toggle',
-            message = 'Mob ESP toggled to ' .. tostring(newState),
-            duration = 3
-        })
-    end)
-
-    -- Buyable Item ESP toggle
-    local itemESPToggle = section1:addToggle({
-        text = 'Buyable Item ESP',
-        state = false
-    })
-    itemESPToggle:bindToEvent('onToggle', function(newState)
-        highlightItemsEnabled = newState -- Enable/disable item highlighting
-        ui.notify({
-            title = 'Item ESP Toggle',
-            message = 'Buyable Item ESP toggled to ' .. tostring(newState),
-            duration = 3
-        })
-    end)
-end
-
--- Second section under Visuals
-local section2 = visualsMenu:addSection({
-    text = 'Visuals Section 2',
-    side = 'right',
-    showMinButton = true
-})
-
-do
-    -- Brightness adjustment slider
-    section2:addSlider({
-        text = 'Adjust Brightness',
-        min = 0,
-        max = 100,
-        step = 1,
-        val = 50
-    }, function(newValue)
-        -- Adjust the lighting's brightness based on the slider value
-        Lighting.Brightness = newValue / 100
-        ui.notify({
-            title = 'Brightness',
-            message = 'Brightness set to ' .. tostring(newValue),
-            duration = 3
-        })
-    end)
-
-    -- Remove fog button
-    section2:addButton({
-        text = 'Remove Fog',
-        style = 'large'
-    }, function()
-        -- Remove fog by adjusting lighting properties
-        Lighting.FogEnd = 100000 -- Set to a high value to remove the fog effect
-        ui.notify({
-            title = 'Fog Removal',
-            message = 'Fog has been removed!',
-            duration = 3
-        })
-    end)
-
-    -- Color picker for highlight fill color
-    section2:addColorPicker({
-        text = 'Highlight Fill Color',
-        color = highlightFillColor
-    }, function(newColor)
-        updateHighlightColors(newColor, nil) -- Update fill color
-    end)
-
-    -- Color picker for outline color
-    section2:addColorPicker({
-        text = 'Outline Color',
-        color = outlineColor
-    }, function(newColor)
-        updateHighlightColors(nil, newColor) -- Update outline color
-    end)
-end
-
--- Third section under Visuals (Loot ESP)
-local lootESPSection = visualsMenu:addSection({
-    text = 'Loot ESP',
+-- Consolidated Visuals Section
+local visualsSection = visualsMenu:addSection({
+    text = 'Visual Features',
     side = 'left',
     showMinButton = true
 })
 
-do
-    -- Chest ESP toggle
-    local chestESPToggle = lootESPSection:addToggle({
-        text = 'Chest ESP',
-        state = false
+-- Highlight Players toggle
+visualsSection:addToggle({
+    text = 'Highlight Players',
+    state = false
+}, function(newState)
+    highlightPlayersEnabled = newState
+    ui.notify({
+        title = 'Highlight Toggle',
+        message = 'Highlight Players toggled to ' .. tostring(newState),
+        duration = 3
     })
-    chestESPToggle:bindToEvent('onToggle', function(newState)
-        chestHighlightEnabled = newState -- Enable/disable chest highlighting
-        updateHighlights() -- Update the highlights immediately
-        ui.notify({
-            title = 'Chest ESP Toggle',
-            message = 'Chest ESP toggled to ' .. tostring(newState),
-            duration = 3
-        })
-    end)
-end
+end)
+
+-- Mob ESP toggle
+visualsSection:addToggle({
+    text = 'Mob ESP',
+    state = false
+}, function(newState)
+    highlightMobsEnabled = newState
+    ui.notify({
+        title = 'Mob ESP Toggle',
+        message = 'Mob ESP toggled to ' .. tostring(newState),
+        duration = 3
+    })
+end)
+
+-- Buyable Item ESP toggle
+visualsSection:addToggle({
+    text = 'Buyable Item ESP',
+    state = false
+}, function(newState)
+    highlightItemsEnabled = newState
+    ui.notify({
+        title = 'Item ESP Toggle',
+        message = 'Buyable Item ESP toggled to ' .. tostring(newState),
+        duration = 3
+    })
+end)
+
+-- Chest ESP toggle
+visualsSection:addToggle({
+    text = 'Chest ESP',
+    state = false
+}, function(newState)
+    chestHighlightEnabled = newState
+    updateHighlights()
+    ui.notify({
+        title = 'Chest ESP Toggle',
+        message = 'Chest ESP toggled to ' .. tostring(newState),
+        duration = 3
+    })
+end)
+
+-- Color pickers for highlights
+local colorSection = visualsMenu:addSection({
+    text = 'Highlight Colors',
+    side = 'right',
+    showMinButton = true
+})
+
+colorSection:addColorPicker({
+    text = 'Player Highlight Fill Color',
+    color = highlightPlayerFillColor
+}, function(newColor)
+    UpdatePlayerHighlightColor(newColor, nil)
+end)
+
+colorSection:addColorPicker({
+    text = 'Player Outline Color',
+    color = highlightPlayerOutlineColor
+}, function(newColor)
+    UpdatePlayerHighlightColor(nil, newColor)
+end)
+
+colorSection:addColorPicker({
+    text = 'Mob Highlight Fill Color',
+    color = highlightMobFillColor
+}, function(newColor)
+    UpdateMobHighlightColor(newColor, nil)
+end)
+
+colorSection:addColorPicker({
+    text = 'Mob Outline Color',
+    color = highlightMobOutlineColor
+}, function(newColor)
+    UpdateMobHighlightColor(nil, newColor)
+end)
+
+colorSection:addColorPicker({
+    text = 'Buyable Item Highlight Fill Color',
+    color = highlightItemFillColor
+}, function(newColor)
+    UpdateItemHighlightColor(newColor, nil)
+end)
+
+colorSection:addColorPicker({
+    text = 'Buyable Item Outline Color',
+    color = highlightItemOutlineColor
+}, function(newColor)
+    UpdateItemHighlightColor(nil, newColor)
+end)
+
+colorSection:addColorPicker({
+    text = 'Chest Highlight Fill Color',
+    color = highlightChestFillColor
+}, function(newColor)
+    UpdateChestHighlightColor(newColor, nil)
+end)
+
+colorSection:addColorPicker({
+    text = 'Chest Outline Color',
+    color = highlightChestOutlineColor
+}, function(newColor)
+    UpdateChestHighlightColor(nil, newColor)
+end)
+
+-- Brightness adjustment slider
+local brightnessSlider = visualsMenu:addSection({
+    text = 'Brightness Adjustment',
+    side = 'left',
+    showMinButton = true
+})
+
+brightnessSlider:addSlider({
+    text = 'Adjust Brightness',
+    min = 0,
+    max = 100,
+    step = 1,
+    val = 50
+}, function(newValue)
+    -- Adjust the lighting's brightness based on the slider value
+    Lighting.Brightness = newValue / 100
+    ui.notify({
+        title = 'Brightness',
+        message = 'Brightness set to ' .. tostring(newValue),
+        duration = 3
+    })
+end)
+
+-- Remove fog button
+local fogButton = visualsMenu:addSection({
+    text = 'Fog Removal',
+    side = 'right',
+    showMinButton = true
+})
+
+fogButton:addButton({
+    text = 'Remove Fog',
+    style = 'large'
+}, function()
+    -- Remove fog by adjusting lighting properties
+    Lighting.FogEnd = 100000 -- Set to a high value to remove the fog effect
+    ui.notify({
+        title = 'Fog Removal',
+        message = 'Fog has been removed!',
+        duration = 3
+    })
+end)
+
+
+
 
 -- Player Menu
 local playerMenu = window:addMenu({
