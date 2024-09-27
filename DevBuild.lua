@@ -37,6 +37,15 @@ local highlightPlayersEnabled = false
 local highlightMobsEnabled = false
 local highlightItemsEnabled = false
 local chestHighlightEnabled = false
+local highlightNPCsEnabled = false -- Added for NPC ESP toggle
+local npcNameESPEnabled = false -- Toggle for NPC Name ESP
+local nameVisible = false
+local healthVisible = false
+
+local npcNameDrawings = {}
+local playerNameDrawings = {}
+local playerHealthDrawings = {}
+
 
 -- Load the new UI library
 local library = loadstring(game:GetObjects("rbxassetid://7657867786")[1].Source)()
@@ -51,19 +60,37 @@ local DeepSploitWindow = library:CreateWindow({
 })
 
 -- Create tabs
-local GeneralTab = DeepSploitWindow:CreateTab({
-    Name = "General"
+local VisualsTab = DeepSploitWindow:CreateTab({
+    Name = "Visuals"
 })
 
+local Exploits = DeepSploitWindow:CreateTab({
+    Name = "Exploits"
+})
+
+
+
 -- Create sections
-local EspSection = GeneralTab:CreateSection({
+local ExploitSection = Exploits:CreateSection({
+    Name = "Player Exploits"
+})
+
+local ExploitSection2 = Exploits:CreateSection({
+    Name = "Game Exploits",
+    Side = "Right"
+})
+
+
+-- Esp Section
+local EspSection = VisualsTab:CreateSection({
     Name = "ESP"
 })
 
-local MovementSection = GeneralTab:CreateSection({
-    Name = "Movement",
+local NameEspSection = VisualsTab:CreateSection({
+    Name = "NameEsp",
     Side = "Right"
 })
+
 
 -- ESP Toggles
 EspSection:AddToggle({
@@ -98,8 +125,69 @@ EspSection:AddToggle({
     end
 })
 
--- Movement controls
-MovementSection:AddToggle({
+EspSection:AddToggle({
+    Name = "Highlight Npcs",
+    Flag = "EspSection_NpcEsp",
+    Callback = function(Value)
+        highlightNPCsEnabled = Value
+    end
+})
+
+
+-- Name Esp Section
+NameEspSection:AddToggle({
+    Name = "Npc Name ESP",
+    Flag = "NameEspSection_NpcNameEsp",
+    Callback = function(Value)
+        npcNameESPEnabled = Value
+    end
+})
+
+NameEspSection:AddToggle({
+    Name = "Player Name ESP",
+    Flag = "NameEspSection_PlayerNameEsp",
+    Callback = function(Value)
+        nameVisible = Value
+    end
+})
+
+NameEspSection:AddToggle({
+    Name = "Player Health ESP",
+    Flag = "NameEspSection_Health",
+    Callback = function(Value)
+        healthVisible = Value
+    end
+})
+
+-- Add Toggle for Mob Name ESP
+NameEspSection:AddToggle({
+    Name = "Mob Name ESP",
+    Flag = "NameEspSection_MobNameEsp",
+    Callback = function(Value)
+        mobNameESPEnabled = Value
+    end
+})
+
+-- Add Toggle for Item Name ESP
+NameEspSection:AddToggle({
+    Name = "Item Name ESP",
+    Flag = "NameEspSection_ItemNameEsp",
+    Callback = function(Value)
+        itemNameESPEnabled = Value
+    end
+})
+
+-- Add Toggle for Chest Name ESP
+NameEspSection:AddToggle({
+    Name = "Chest Name ESP",
+    Flag = "NameEspSection_ChestNameEsp",
+    Callback = function(Value)
+        chestNameESPEnabled = Value
+    end
+})
+
+-- Exploit Section
+ExploitSection:AddToggle({
     Name = "Toggle Flight",
     Flag = "MovementSection_ToggleFlight",
     Callback = function(Value)
@@ -107,7 +195,7 @@ MovementSection:AddToggle({
     end
 })
 
-MovementSection:AddToggle({
+ExploitSection:AddToggle({
     Name = "Toggle Noclip",
     Flag = "MovementSection_ToggleNoclip",
     Callback = function(Value)
@@ -116,7 +204,7 @@ MovementSection:AddToggle({
     end
 })
 
-MovementSection:AddSlider({
+ExploitSection:AddSlider({
     Name = "Walk Speed",
     Flag = "MovementSection_WalkSpeed",
     Value = walkSpeed,
@@ -127,7 +215,7 @@ MovementSection:AddSlider({
     end
 })
 
-MovementSection:AddSlider({
+ExploitSection:AddSlider({
     Name = "Fly Speed",
     Flag = "MovementSection_FlySpeed",
     Value = flySpeed,
@@ -138,7 +226,7 @@ MovementSection:AddSlider({
     end
 })
 
-MovementSection:AddSlider({
+ExploitSection:AddSlider({
     Name = "Jump Power",
     Flag = "MovementSection_JumpPower",
     Value = jumpPower,
@@ -149,7 +237,7 @@ MovementSection:AddSlider({
     end
 })
 
--- Functions (unchanged from your original script)
+-- Functions
 local function createHighlight(object, fillColor, outlineColor)
     if not object:FindFirstChildOfClass("Highlight") then
         local highlight = Instance.new("Highlight")
@@ -173,10 +261,101 @@ local function removeHighlight(object)
     end
 end
 
+local function createNpcNameDrawing(npc)
+    if not npcNameDrawings[npc] then
+        local drawing = Drawing.new("Text")
+        drawing.Text = npc.Name
+        drawing.Size = 18
+        drawing.Font = 2
+        drawing.Color = Color3.fromRGB(255, 255, 255)
+        drawing.Center = true
+        drawing.Outline = true
+        drawing.Visible = npcNameESPEnabled
+        npcNameDrawings[npc] = drawing
+    end
+end
+
+local function updateNpcNameDrawing(npc)
+    local drawing = npcNameDrawings[npc]
+    if drawing then
+        local rootPart = npc:FindFirstChild("HumanoidRootPart")
+        if rootPart then
+            local screenPosition, onScreen = camera:WorldToViewportPoint(rootPart.Position + Vector3.new(0, 3, 0))
+            if onScreen then
+                drawing.Position = Vector2.new(screenPosition.X, screenPosition.Y)
+                drawing.Visible = npcNameESPEnabled
+            else
+                drawing.Visible = false
+            end
+        end
+    end
+end
+
+local function removeNpcNameDrawing(npc)
+    if npcNameDrawings[npc] then
+        npcNameDrawings[npc]:Remove()
+        npcNameDrawings[npc] = nil
+    end
+end
+
+local function createPlayerNameDrawing(player)
+    if not playerNameDrawings[player] then
+        local drawing = Drawing.new("Text")
+        drawing.Text = player.Name
+        drawing.Size = 18
+        drawing.Font = 2
+        drawing.Color = Color3.fromRGB(255, 255, 255)
+        drawing.Center = true
+        drawing.Outline = true
+        drawing.Visible = nameVisible
+        playerNameDrawings[player] = drawing
+    end
+end
+
+local function createPlayerHealthDrawing(player)
+    if not playerHealthDrawings[player] then
+        local drawing = Drawing.new("Text")
+        drawing.Size = 18
+        drawing.Font = 2
+        drawing.Color = Color3.fromRGB(0, 255, 0) -- Green color for health
+        drawing.Center = true
+        drawing.Outline = true
+        drawing.Visible = healthVisible
+        playerHealthDrawings[player] = drawing
+    end
+end
+
+local function updatePlayerDrawings(player)
+    local character = player.Character
+    if character then
+        local rootPart = character:FindFirstChild("HumanoidRootPart")
+        local humanoid = character:FindFirstChild("Humanoid")
+        
+        local nameDrawing = playerNameDrawings[player]
+        local healthDrawing = playerHealthDrawings[player]
+
+        if rootPart and humanoid and nameDrawing and healthDrawing then
+            local screenPosition, onScreen = camera:WorldToViewportPoint(rootPart.Position + Vector3.new(0, 3, 0))
+            if onScreen then
+                nameDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y)
+                nameDrawing.Visible = nameVisible
+
+                healthDrawing.Text = tostring(math.floor(humanoid.Health))
+                healthDrawing.Position = Vector2.new(screenPosition.X, screenPosition.Y - 20)
+                healthDrawing.Visible = healthVisible
+            else
+                nameDrawing.Visible = false
+                healthDrawing.Visible = false
+            end
+        end
+    end
+end
+
 local function updateHighlights()
     local liveFolder = Workspace:FindFirstChild("Live")
     local shopsFolder = Workspace:FindFirstChild("Shops")
     local thrownFolder = Workspace:FindFirstChild("Thrown")
+    local npcsFolder = Workspace:FindFirstChild("NPCs") -- For NPC ESP
 
     local playerNames = {}
     for _, p in pairs(Players:GetPlayers()) do
@@ -187,13 +366,26 @@ local function updateHighlights()
     if highlightPlayersEnabled then
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
-                createHighlight(p.Character, highlightPlayerFillColor, highlightPlayerOutlineColor)
+                createHighlight(p.Character, Color3.fromRGB(255, 165, 0), Color3.fromRGB(255, 255, 255)) -- Default colors, adjust as needed
+                createPlayerNameDrawing(p)
+                createPlayerHealthDrawing(p)
+                updatePlayerDrawings(p)
             end
         end
     else
         for _, p in pairs(Players:GetPlayers()) do
             if p.Character then
                 removeHighlight(p.Character)
+            end
+            if p ~= Players.LocalPlayer then
+                if playerNameDrawings[p] then
+                    playerNameDrawings[p]:Remove()
+                    playerNameDrawings[p] = nil
+                end
+                if playerHealthDrawings[p] then
+                    playerHealthDrawings[p]:Remove()
+                    playerHealthDrawings[p] = nil
+                end
             end
         end
     end
@@ -202,7 +394,7 @@ local function updateHighlights()
     if highlightMobsEnabled and liveFolder then
         for _, mob in pairs(liveFolder:GetChildren()) do
             if not playerNames[mob.Name] then
-                createHighlight(mob, highlightMobFillColor, highlightMobOutlineColor)
+                createHighlight(mob, Color3.fromRGB(255, 101, 27), Color3.fromRGB(255, 255, 255)) -- Default colors, adjust as needed
             end
         end
     else
@@ -216,7 +408,7 @@ local function updateHighlights()
     -- Highlight buyable items
     if highlightItemsEnabled and shopsFolder then
         for _, item in pairs(shopsFolder:GetChildren()) do
-            createHighlight(item, highlightItemFillColor, highlightItemOutlineColor)
+            createHighlight(item, Color3.fromRGB(0, 255, 0), Color3.fromRGB(255, 255, 255)) -- Default colors, adjust as needed
         end
     else
         if shopsFolder then
@@ -230,13 +422,33 @@ local function updateHighlights()
     if chestHighlightEnabled and thrownFolder then
         for _, model in pairs(thrownFolder:GetChildren()) do
             if model:IsA("Model") and model:FindFirstChild("Lid") then
-                createHighlight(model, highlightChestFillColor, highlightChestOutlineColor)
+                createHighlight(model, Color3.fromRGB(255, 255, 0), Color3.fromRGB(255, 255, 255)) -- Default colors, adjust as needed
             end
         end
     else
         if thrownFolder then
             for _, model in pairs(thrownFolder:GetChildren()) do
-                removeHighlight(model)
+                if model:IsA("Model") then
+                    removeHighlight(model)
+                end
+            end
+        end
+    end
+
+    -- Highlight NPCs and update their names
+    if highlightNPCsEnabled and npcsFolder then
+        for _, npc in pairs(npcsFolder:GetChildren()) do
+            if npc:IsA("Model") and npc:FindFirstChild("HumanoidRootPart") then
+                createHighlight(npc, Color3.fromRGB(255, 0, 0), Color3.fromRGB(255, 255, 255)) -- Default colors, adjust as needed
+                createNpcNameDrawing(npc)
+                updateNpcNameDrawing(npc)
+            end
+        end
+    else
+        if npcsFolder then
+            for _, npc in pairs(npcsFolder:GetChildren()) do
+                removeHighlight(npc)
+                removeNpcNameDrawing(npc)
             end
         end
     end
@@ -244,108 +456,73 @@ end
 
 local function updateMovementDirection()
     movementDirection = Vector3.new(0, 0, 0)
-    
-    local cameraLookVector = camera.CFrame.LookVector
-    local cameraDirection = Vector3.new(cameraLookVector.X, 0, cameraLookVector.Z).Unit
-    local cameraRight = Vector3.new(camera.CFrame.RightVector.X, 0, camera.CFrame.RightVector.Z).Unit
-
     if UserInputService:IsKeyDown(Enum.KeyCode.W) then
-        movementDirection = movementDirection + cameraDirection
+        movementDirection = movementDirection + camera.CFrame.LookVector
     end
     if UserInputService:IsKeyDown(Enum.KeyCode.S) then
-        movementDirection = movementDirection - cameraDirection
+        movementDirection = movementDirection - camera.CFrame.LookVector
     end
     if UserInputService:IsKeyDown(Enum.KeyCode.A) then
-        movementDirection = movementDirection - cameraRight
+        movementDirection = movementDirection - camera.CFrame.RightVector
     end
     if UserInputService:IsKeyDown(Enum.KeyCode.D) then
-        movementDirection = movementDirection + cameraRight
-    end
-
-    if movementDirection.Magnitude > 0 then
-        movementDirection = movementDirection.Unit
+        movementDirection = movementDirection + camera.CFrame.RightVector
     end
 end
 
-local function moveCharacter(deltaTime)
-    if movementDirection.Magnitude > 0 then
-        local displacement = movementDirection * walkSpeed * deltaTime
-        local newCFrame = humanoidRootPart.CFrame + displacement
-        humanoidRootPart.CFrame = newCFrame
-    end
-end
-
-local function setCanCollideForCharacter(canCollide)
-    for _, part in pairs(character:GetDescendants()) do
-        if part:IsA("BasePart") then
-            part.CanCollide = canCollide
-        end
-    end
-end
-
-local function createPlatform()
-    platform = Instance.new("Part")
-    platform.Size = Vector3.new(5, 1, 5)
-    platform.Anchored = true
-    platform.CanCollide = false
-    platform.Transparency = 1
-    platform.Parent = Workspace
-end
-
-local function stopMomentum()
-    humanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-    humanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
-end
-
-local function onRenderStepped(deltaTime)
-    updateMovementDirection()
-    
+local function fly()
     if flying then
-        if movementDirection.Magnitude > 0 then
-            humanoidRootPart.CFrame = humanoidRootPart.CFrame + (movementDirection * flySpeed * deltaTime)
-        end
-        platform.Position = humanoidRootPart.Position - Vector3.new(0, 3.5, 0)
-        stopMomentum()
+        player.Character.HumanoidRootPart.Velocity = movementDirection * flySpeed
     else
-        moveCharacter(deltaTime)
+        player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
     end
+end
 
-    if UserInputService:IsKeyDown(Enum.KeyCode.Space) and humanoidRootPart.Velocity.Y <= 0 then
-        humanoidRootPart.Velocity = humanoidRootPart.Velocity + Vector3.new(0, jumpPower, 0)
+local function onFlyToggle()
+    flying = not flying
+    if flying then
+        flySpeed = 50
+        isNoclipping = true
+        while flying do
+            updateMovementDirection()
+            fly()
+            RunService.RenderStepped:Wait()
+        end
+    else
+        isNoclipping = false
     end
+end
 
+local function onNoClipToggle()
+    isNoclipping = not isNoclipping
+end
+
+-- Main loop
+RunService.RenderStepped:Connect(function()
     updateHighlights()
-end
-
-local function onCharacterAdded(newCharacter)
-    character = newCharacter
-    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
-    createPlatform()
-    isNoclipping = false
-    flying = false
-end
-
--- Deleting each GUI element
-local elementsToDelete = {
-    "AgeInfo",
-    "CharacterInfo",
-    "WorldInfo"
-}
-
-for _, elementName in ipairs(elementsToDelete) do
-    local element = infoFrame:FindFirstChild(elementName)
-    if element then
-        element:Destroy()
+    if flying then
+        fly()
     end
-end
+end)
 
-if leaderboardGui then
-    leaderboardGui:Destroy()
-end
+-- Keybindings
+UserInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.G then
+        onFlyToggle()
+    elseif input.KeyCode == Enum.KeyCode.N then
+        onNoClipToggle()
+    end
+end)
 
--- Connect events
-player.CharacterAdded:Connect(onCharacterAdded)
-RunService.RenderStepped:Connect(onRenderStepped)
-
--- Initialize for the first time
-onCharacterAdded(player.Character or player.CharacterAdded:Wait())
+-- Cleanup drawings on removal
+Players.PlayerRemoving:Connect(function(leavingPlayer)
+    if playerNameDrawings[leavingPlayer] then
+        playerNameDrawings[leavingPlayer]:Remove()
+        playerNameDrawings[leavingPlayer] = nil
+    end
+    if playerHealthDrawings[leavingPlayer] then
+        playerHealthDrawings[leavingPlayer]:Remove()
+        playerHealthDrawings[leavingPlayer] = nil
+    end
+end)
+print("DeepSploit V1.2 loaded successfully")
